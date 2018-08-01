@@ -43,8 +43,8 @@ void printTime() {
 
   const String day = dayAsString(t.day);
   char buf[50];
-  snprintf(buf, sizeof(buf), "%s %04d-%02d-%02d %02d:%02d:%02d",
-           day.c_str(),
+  snprintf(buf, sizeof(buf),  "%04d-%02d-%02d %02d:%02d:%02d",
+  
            t.yr, t.mon, t.date,
            t.hr, t.min, t.sec);
 
@@ -73,12 +73,17 @@ unsigned char humidity = 0;
     return;
   }
   
-  printTime();
-  Serial.print((int)temperature); Serial.print(" *C, "); 
-  Serial.print((int)humidity); Serial.println(" H");
+   char buf[100];
+   Time t = rtc.time();
+  snprintf(buf, sizeof(buf),  "%04d-%02d-%02d %02d:%02d,%02d,%02d",
   
+           t.yr, t.mon, t.date,
+           t.hr, t.min, temperature, humidity);
+
+  Serial.println(buf);        
+
   
-  delay(2000);
+  delay(2 * 1000);
 
     // id, date, temp, hum, foto
 }
