@@ -7,8 +7,9 @@
 #include <SD.h>
 
 // ----- CONFIG
+    #define SERIAL_LOG true
     #define BAUD_RATE 9600
-    #define SAVE_EVERY_MIN 10
+    #define SAVE_EVERY_MIN 0.1
     // PINS
     #define pinD_DHT 7
     #define pin_PRES A6
@@ -16,10 +17,12 @@
     const int kIoPin   = 2;  // Input/Output
     const int kSclkPin = 3;  // Serial Clock
 
+
     // CLASSES
     SimpleDHT11 DHT;
     DS1302 rtc(kCePin, kIoPin, kSclkPin);
     File myFile;
+
 
 void ledBlink(uint16_t ON, uint16_t OFF, uint16_t times = 2) {
     digitalWrite(LED_BUILTIN, HIGH);
@@ -68,13 +71,18 @@ String getDateString() {
 
 void setup() {
     pinMode(pin_PRES, INPUT);           // for photoresistor
-    pinMode(LED_BUILTIN, OUTPUT);       // Init board blink led
-    Serial.begin(BAUD_RATE);            // Init serial monitor
-  
-    while(!Serial) {
+    pinMode(LED_BUILTIN, OUTPUT);                // Init serial monitor
+ 
+    if (SERIAL_LOG) {
+      Serial.begin(BAUD_RATE);
+      Serial.println("Serial has been initialized");
+      while(!Serial) {
         // Wait until terminal has been open
+      }
+      Serial.println("[+] Serial Monitor succesfully initialized!");
     }
-    Serial.println("[+] Serial Monitor succesfully initialized!");
+
+    
 
     if (!SD.begin(A0)) {
       Serial.println("initialization failed!");
@@ -83,20 +91,6 @@ void setup() {
   Serial.println("[+] SD Card initialization done.");
 }
 
-void saveToSD(String time, int8_t temp, uint8_t hum) {
-  String a = time;
-  a += ",";
-  a += temp;
-  a += ",";
-  a += hum;
-  myFile = SD.open("teeest.txt", FILE_WRITE);
-  if (myFile) {
-    myFile.println(a);
-    myFile.close();
-    Serial.print("[+] Added to file: ");
-    Serial.println(a);
-  }
-}
 
 
 void loop() {
@@ -111,15 +105,33 @@ void loop() {
  // Serial.println(getDateString());
   
   //Serial.println(getFullTime());
-  saveToSD(getFullTime(), temperature, humidity);
+  saveToSD(getFullTime(), temperature, humidity, getSunPrec(pin_PRES));
 
 
   delay(SAVE_EVERY_MIN * (60000));
 
-    // id, date, temp, hum, foto
+    // id, date, temp C, hum %, foto %
+    //Serial.println(getSunPrec(A6), 1);
 }
 
-float getSunPrec() {
-  int value = analogRead(pin_PRES);
+void saveToSD(String time, int8_t temp, uint8_t hum, float s) {
+  String toSave = time; toSave += ","; 
+  toSave += temp; toSave += ",";
+  toSave += hum; toSave += ",";
+  toSave += s;
+  myFile = SD.open("teeest.txt", FILE_WRITE);
+  if (myFile) {
+    myFile.println(toSave);
+    myFile.close();
+    Serial.print("[+] Added to file: ");
+    Serial.println(toSave);
+  } else {
+    Serial.println("ERROR");
+  }
+}
+
+float getSunPrec(short pin) {
+  int value = analogRead(pin);
   return (map(value, 0, 1023, 1000, 0) / 10.0);
 }
+
