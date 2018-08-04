@@ -10,6 +10,7 @@
     #define SERIAL_LOG true
     #define BAUD_RATE 9600
     #define SAVE_EVERY_MIN 0.1
+    #define FILE_NAME "TEST_FILE_000.txt"
     // PINS
     #define pinD_DHT 7
     #define pin_PRES A6
@@ -17,14 +18,65 @@
     const int kIoPin   = 2;  // Input/Output
     const int kSclkPin = 3;  // Serial Clock
 
+    #define Z_OK "[+]"
+    #define Z_BAD "[-]"
+    #define Z_ERROR "[ERROR]"
 
     // CLASSES
     SimpleDHT11 DHT;
     DS1302 rtc(kCePin, kIoPin, kSclkPin);
     File myFile;
 
+// -------- PRE DEFINED FUNCTIONS
 
-void ledBlink(uint16_t ON, uint16_t OFF, uint16_t times = 2) {
+void logSerial(String txt, String logType = "", bool newLine = true);
+void ledBlink(uint16_t ON, uint16_t OFF);
+
+// ------ END CONFIG
+
+void setup() {
+    pinMode(pin_PRES, INPUT);           // for photoresistor
+    pinMode(LED_BUILTIN, OUTPUT);    
+    digitalWrite(LED_BUILTIN, LOW);            // Init serial monitor
+ 
+    if (SERIAL_LOG) {
+      Serial.begin(BAUD_RATE);
+      logSerial("Serial has been initialized", Z_OK);
+      while(!Serial) {
+        // Wait until terminal has been open
+      }
+      Serial.println("[+] Serial Monitor succesfully initialized!");
+    }
+
+    while (!SD.begin(A0)) {
+      logSerial("SD Card initialization failed!", Z_ERROR);
+      digitalWrite(LED_BUILTIN, HIGH);
+      return;
+      }
+  
+  Serial.println("[+] SD Card initialization done.");
+}
+
+void loop() {
+
+  unsigned char temperature = 0;
+  unsigned char humidity = 0;
+  int err = SimpleDHTErrSuccess;
+  if ((err = DHT.read(pinD_DHT, &temperature, &humidity, NULL)) != SimpleDHTErrSuccess) {
+    Serial.print("Read DHT11 failed, err="); Serial.println(err);delay(1000);
+    return;
+  }
+ // Serial.println(getDateString());
+  
+  //Serial.println(getFullTime());
+  saveToSD(getFullTime(), temperature, humidity, getSunPrec(pin_PRES));
+
+  delay(SAVE_EVERY_MIN * (60000));
+
+    // id, date, temp C, hum %, foto %
+}
+
+void ledBlink(int ON, int OFF) {
     digitalWrite(LED_BUILTIN, HIGH);
     delay(ON);
     digitalWrite(LED_BUILTIN, LOW);
@@ -67,52 +119,6 @@ String getDateString() {
 
   return buf;
 }
-// ------ END CONFIG
-
-void setup() {
-    pinMode(pin_PRES, INPUT);           // for photoresistor
-    pinMode(LED_BUILTIN, OUTPUT);                // Init serial monitor
- 
-    if (SERIAL_LOG) {
-      Serial.begin(BAUD_RATE);
-      Serial.println("Serial has been initialized");
-      while(!Serial) {
-        // Wait until terminal has been open
-      }
-      Serial.println("[+] Serial Monitor succesfully initialized!");
-    }
-
-    
-
-    if (!SD.begin(A0)) {
-      Serial.println("initialization failed!");
-      return;
-  }
-  Serial.println("[+] SD Card initialization done.");
-}
-
-
-
-void loop() {
-
-  unsigned char temperature = 0;
-  unsigned char humidity = 0;
-  int err = SimpleDHTErrSuccess;
-  if ((err = DHT.read(pinD_DHT, &temperature, &humidity, NULL)) != SimpleDHTErrSuccess) {
-    Serial.print("Read DHT11 failed, err="); Serial.println(err);delay(1000);
-    return;
-  }
- // Serial.println(getDateString());
-  
-  //Serial.println(getFullTime());
-  saveToSD(getFullTime(), temperature, humidity, getSunPrec(pin_PRES));
-
-
-  delay(SAVE_EVERY_MIN * (60000));
-
-    // id, date, temp C, hum %, foto %
-    //Serial.println(getSunPrec(A6), 1);
-}
 
 void saveToSD(String time, int8_t temp, uint8_t hum, float s) {
   String toSave = time; toSave += ","; 
@@ -120,13 +126,16 @@ void saveToSD(String time, int8_t temp, uint8_t hum, float s) {
   toSave += hum; toSave += ",";
   toSave += s;
   myFile = SD.open("teeest.txt", FILE_WRITE);
+  
   if (myFile) {
     myFile.println(toSave);
     myFile.close();
     Serial.print("[+] Added to file: ");
     Serial.println(toSave);
   } else {
-    Serial.println("ERROR");
+    logSerial("SD Card error, next try 1sec", Z_ERROR);
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(1000);
   }
 }
 
@@ -135,3 +144,18 @@ float getSunPrec(short pin) {
   return (map(value, 0, 1023, 1000, 0) / 10.0);
 }
 
+
+void logSerial(String txt, String logType = "", bool newLine = true) {
+  if (!SERIAL_LOG) {
+    return;
+  }
+
+  String toPrint = logType;
+  toPrint += " ";
+  toPrint += txt;
+  if (newLine) {
+    Serial.println(toPrint);
+    return;
+  }
+  Serial.print(toPrint);
+}

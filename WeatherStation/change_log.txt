@@ -1,0 +1,4 @@
+ALPHA v0.4
+- more information about errors in Serial Monitor.
+- added new function that helps to print strings in Serial Monitor.
+- small code fixes.
